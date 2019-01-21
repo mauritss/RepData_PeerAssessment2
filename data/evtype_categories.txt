@@ -1,0 +1,49 @@
+nr, name, cat
+1, Astronomical Low Tide, Z
+2, Avalanche, Z
+3, Blizzard, Z
+4, Coastal Flood, Z
+5, Cold/Wind Chill, Z
+6, Debris Flow, C
+7, Dense Fog, Z
+8, Dense Smoke, Z
+9, Drought, Z
+10, Dust Devil, C
+11, Dust Storm, Z
+12, Excessive Heat, Z
+13, Extreme Cold/Wind Chill, Z
+14, Flash Flood, C
+15, Flood, C
+16, Freezing Fog, Z
+17, Frost/Freeze, Z
+18, Funnel Cloud, C
+19, Hail, C
+20, Heat, Z
+21, Heavy Rain, C
+22, Heavy Snow, Z
+23, High Surf, Z
+24, High Wind, Z
+25, Hurricane/Typhoon, Z
+26, Ice Storm, Z
+27, Lakeshore Flood, Z
+28, Lake-Effect Snow, Z
+29, Lightning, C
+30, Marine Hail, M
+31, Marine High Wind, M
+32, Marine Strong Wind, M
+33, Marine Thunderstorm Wind, M
+34, Rip Current, Z
+35, Seiche, Z
+36, Sleet, Z
+37, Storm Surge/Tide, Z
+38, Strong Wind, Z
+39, Thunderstorm Wind, C
+40, Tornado, C
+41, Tropical Depression, Z
+42, Tropical Storm, Z
+43, Tsunami, Z
+44, Volcanic Ash, Z
+45, Waterspout, M
+46, Wildfire, Z
+47, Winter Storm, Z
+48, Winter Weather, Z

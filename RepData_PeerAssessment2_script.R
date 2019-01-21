@@ -2,14 +2,14 @@
 setwd("C:/Users/Maurits/test-repo/RepData_PeerAssessment2")
 
 # Load packages needed for analysis
-library(dplyr); library(lubridate); library(data.table)
+library(dplyr); library(lubridate); library(data.table); library(stringdist)
 
 # Create data folder
 if (!file.exists("data")) {
     dir.create("data")
 }
 
-# Downloading Raw Data
+# Downloading Raw Data (cache)
 download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",
               "./data/rawData.bz2")
 
@@ -17,21 +17,16 @@ download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.
 dataDownloaded <- date()
 print(dataDownloaded)
 
-# Reading the file
+# Reading the file (cache)
 rawData = read.csv("./data/rawData.bz2", sep = ",", na.strings = NA)
 
 # General tidying of data (variable names, data type)
 colnames(rawData) = tolower(colnames(rawData))
 colnames(rawData) = colnames(rawData) %>% gsub("_", "", .)
-rawData$bgndate = as.Date(rawData$bgndate, format = "%m/%d/%Y")
-rawData$countyname = as.character(rawData$countyname)
-rawData$bgnlocati = as.character(rawData$bgnlocati)
-rawData$enddate = as.Date(rawData$enddate, format = "%m/%d/%Y")
-rawData$endlocati = as.character(rawData$endlocati)
-rawData$zonenames = as.character(rawData$zonenames)
-rawData$remarks = as.character(rawData$remarks)
 names(rawData)[7] = "state2" ## rename double var name
 names(rawData)[35] = "longitude2"## rename double var name
+rawData$bgndate = as.Date(rawData$bgndate, format = "%m/%d/%Y")
+rawData$enddate = as.Date(rawData$enddate, format = "%m/%d/%Y")
 
 # Subsetting data and change to data table (for more analysis speed) 
 ## 1. Since our objective is comparing the effects of different weather events.
@@ -44,10 +39,26 @@ rm(rawData)
 ## based on the questions asked. We only need to provide general information 
 ## about the US as a whole and different weather events.
 sub1Data = sub1Data %>%
-    select(state, bgndate, county, state2, evtype, bgnrange, bgnazi, enddate,
-           endrange, endazi, length, width, f, mag, fatalities, injuries,
-           propdmg, propdmgexp, cropdmg, cropdmgexp, wfo, stateoffic, refnum)
+    select(evtype, f, mag, fatalities, injuries, propdmg, propdmgexp, cropdmg,
+           cropdmgexp, wfo, stateoffic, refnum)
 ## 3. For more analysis speed change data frame to data table.
 sub1Data = data.table(sub1Data)
 
+# Cleaning all variables left in de subsetted data set
+sub1Data$evtype = tolower(sub1Data$evtype)
 
+# EVTYPE
+## Created a list of the event types based on the documentation files
+evtype_cat = read.table("./data/evtype_categories.txt", sep = ",", header = T)
+## Match the evtype character string based on osa method with max distance 4.
+## Checked the results with different methods and distance to get optimum 
+## result. Because of time chose to drop (subset) all NA's.
+matchlist = amatch(sub1Data$evtype, evtype_cat$name, nomatch = NA, 
+                   method = "osa", maxDist = 4)
+sub1Data$evtypecat = matchlist
+sub2Data = sub1Data[matchlist > 0]
+## merge sub2Data with evtype_cat to create a 48 event variable
+sub2Data = merge(sub2Data, evtype_cat, by.x = "evtypecat", by.y = "nr")
+rm(sub1Data, matchlist, evtype_cat)
+
+# EVTYPE
