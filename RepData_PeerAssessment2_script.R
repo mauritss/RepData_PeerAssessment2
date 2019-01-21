@@ -20,13 +20,14 @@ print(dataDownloaded)
 # Reading the file (cache)
 rawData = read.csv("./data/rawData.bz2", sep = ",", na.strings = NA)
 
+
 # General tidying of data (variable names, data type)
 colnames(rawData) = tolower(colnames(rawData))
 colnames(rawData) = colnames(rawData) %>% gsub("_", "", .)
 names(rawData)[7] = "state2" ## rename double var name
 names(rawData)[35] = "longitude2"## rename double var name
 rawData$bgndate = as.Date(rawData$bgndate, format = "%m/%d/%Y")
-rawData$enddate = as.Date(rawData$enddate, format = "%m/%d/%Y")
+#rawData$enddate = as.Date(rawData$enddate, format = "%m/%d/%Y")
 
 # Subsetting data and change to data table (for more analysis speed) 
 ## 1. Since our objective is comparing the effects of different weather events.
@@ -34,18 +35,21 @@ rawData$enddate = as.Date(rawData$enddate, format = "%m/%d/%Y")
 ## drop all records before this time.
 sub1Data = rawData %>%
     filter(bgndate >= ("1996-01-01"))
-rm(rawData)
+#rm(rawData)
+
 ## 2. I have decided to not take several variables (time, states) in to account 
 ## based on the questions asked. We only need to provide general information 
 ## about the US as a whole and different weather events.
 sub1Data = sub1Data %>%
     select(evtype, f, mag, fatalities, injuries, propdmg, propdmgexp, cropdmg,
            cropdmgexp, wfo, stateoffic, refnum)
+
 ## 3. For more analysis speed change data frame to data table.
 sub1Data = data.table(sub1Data)
 
 # Cleaning all variables left in de subsetted data set
 sub1Data$evtype = tolower(sub1Data$evtype)
+
 
 # EVTYPE
 ## Created a list of the event types based on the documentation files
@@ -61,4 +65,42 @@ sub2Data = sub1Data[matchlist > 0]
 sub2Data = merge(sub2Data, evtype_cat, by.x = "evtypecat", by.y = "nr")
 rm(sub1Data, matchlist, evtype_cat)
 
-# EVTYPE
+# PROPDMG(EXP) & CROPDMG(EXP)
+sub2Data$propdmgexp = tolower(sub2Data$propdmgexp)
+sub2Data$cropdmgexp = tolower(sub2Data$cropdmgexp)
+zero = c("-","?","+","0", "")
+for (i in 1:506810){
+    if (sub2Data$propdmgexp[i] %in% zero){
+        sub2Data$propdmgexp[i] = NA
+    }
+    else if (sub2Data$propdmgexp[i] == "b"){
+        sub2Data$propdmgexp[i] = "1000000000" ## US Billion
+    }
+    else if (sub2Data$propdmgexp[i] == "m"){
+        sub2Data$propdmgexp = "1000000"
+    }
+    else if (sub2Data$propdmgexp[i] == "k"){
+        sub2Data$propdmgexp = "1000"
+    }
+    else {
+        sub2Data$propdmgexp = NA
+    }
+}
+
+for (i in 1:506810){
+    if (sub2Data$cropdmgexp[i] %in% zero){
+        sub2Data$cropdmgexp[i] = NA
+    }
+    else if (sub2Data$cropdmgexp[i] == "b"){
+        sub2Data$cropdmgexp[i] = "1000000000"
+    }
+    else if (sub2Data$cropdmgexp[i] == "m"){
+        sub2Data$cropdmgexp = "1000000"
+    }
+    else if (sub2Data$cropdmgexp[i] == "k"){
+        sub2Data$cropdmgexp = "1000"
+    }
+    else {
+        sub2Data$cropdmgexp = NA
+    }
+}
