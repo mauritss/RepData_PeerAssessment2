@@ -2,7 +2,8 @@
 setwd("C:/Users/Maurits/test-repo/RepData_PeerAssessment2")
 
 # Load packages needed for analysis
-library(dplyr); library(lubridate); library(data.table); library(stringdist)
+library(dplyr); library(lubridate); library(data.table); library(stringdist);
+library(ggplot2)
 
 # Create data folder
 if (!file.exists("data")) {
@@ -27,7 +28,6 @@ colnames(rawData) = colnames(rawData) %>% gsub("_", "", .)
 names(rawData)[7] = "state2" ## rename double var name
 names(rawData)[35] = "longitude2"## rename double var name
 rawData$bgndate = as.Date(rawData$bgndate, format = "%m/%d/%Y")
-#rawData$enddate = as.Date(rawData$enddate, format = "%m/%d/%Y")
 
 # Subsetting data and change to data table (for more analysis speed) 
 ## 1. Since our objective is comparing the effects of different weather events.
@@ -35,7 +35,7 @@ rawData$bgndate = as.Date(rawData$bgndate, format = "%m/%d/%Y")
 ## drop all records before this time.
 sub1Data = rawData %>%
     filter(bgndate >= ("1996-01-01"))
-#rm(rawData)
+rm(rawData)
 
 ## 2. I have decided to not take several variables (time, states) in to account 
 ## based on the questions asked. We only need to provide general information 
@@ -87,4 +87,60 @@ sub2Data$totcropdmg <- sub2Data$cropdmg * sub2Data$cropdmgexp2
 sub2Data <- subset(sub2Data, select = c(-propdmg, -propdmgexp, -propdmgexp2,
                                         -cropdmg, -cropdmgexp, -cropdmgexp2,
                                         -evtypecat, -evtype))
+rm(zero)
+## Because assessment is about reproducibility I will stop here with cleaning
+## the data. And go from here with the analysis.
 
+
+
+# Exploratory Data Analysis
+## Q1. Across the United States, which types of events (as indicated in the
+## EVTYPE variable) are most harmful with respect to population health?
+## I translated population health in fatalities and injuries.
+sub3Data <- sub2Data %>%
+    group_by(name) %>%
+    summarize(sumfat=sum(fatalities, na.rm = T), 
+              suminj=sum(injuries, na.rm = T))
+## Top 5
+quantile(sub3Data$sumfat, probs = seq(0, 1, 0.10), na.rm = FALSE)
+sub4Data <- subset(sub3Data, sumfat >= 487.0) ## top 10% - 5 obs
+sub4Data <- sub4Data[order(sub4Data$sumfat),]
+quantile(sub3Data$suminj, probs = seq(0, 1, 0.10), na.rm = FALSE)
+sub5Data <- subset(sub3Data, suminj >= 1537.0) ## top 10% - 5 obs
+sub5Data <- sub5Data[order(sub5Data$suminj),]
+
+g1 <- ggplot(sub4Data, aes(x=reorder(name, -sumfat), sumfat))
+g1 + geom_point() + theme_bw() + labs(x = "Event Type",
+        y = "Total number of fatalities", 
+        title = "Event types and total number of fatalities (top 5)")
+
+g2 <- ggplot(sub5Data, aes(x=reorder(name, -suminj), suminj))
+g2 + geom_point() + theme_bw() + labs(x = "Event Type",
+        y = "Total number of injuries", 
+        title = "Event types and total number of injuries - top 5")
+
+## Q2. Across the United States, which types of events have the greatest
+## economic consequences? Translated economic consequences into prop &
+## crop damage.
+sub6Data <- sub2Data %>%
+    group_by(name) %>%
+    summarize(prodamsum=sum(totpropdmg, na.rm = T), 
+              crodamsum=sum(totcropdmg, na.rm = T))
+quantile(sub6Data$prodamsum, probs = seq(0, 1, 0.10), na.rm = FALSE)
+sub7Data <- subset(sub6Data, prodamsum >= 11119034485) ## top 10% - 5 obs
+sub7Data <- sub7Data[order(sub7Data$prodamsum),]
+quantile(sub6Data$crodamsum, probs = seq(0, 1, 0.10), na.rm = FALSE)
+sub8Data <- subset(sub6Data, crodamsum >= 1214543850) ## top 10% - 5 obs
+sub8Data <- sub8Data[order(sub8Data$crodamsum),]
+
+g3 <- ggplot(sub7Data, aes(x=reorder(name, -prodamsum), prodamsum))
+g3 + geom_point() + theme_bw() + labs(x = "Event Type",
+                                      y = "Total number of prodamsum", 
+                                      title = "Event types and total number of 
+                                      Property Damage (top 5)")
+
+g4 <- ggplot(sub8Data, aes(x=reorder(name, -crodamsum), crodamsum))
+g4 + geom_point() + theme_bw() + labs(x = "Event Type",
+                                      y = "Total number of crodamsum", 
+                                      title = "Event types and total number of 
+                                      Crop damage - top 5")
