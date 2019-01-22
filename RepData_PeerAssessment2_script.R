@@ -69,38 +69,22 @@ rm(sub1Data, matchlist, evtype_cat)
 sub2Data$propdmgexp = tolower(sub2Data$propdmgexp)
 sub2Data$cropdmgexp = tolower(sub2Data$cropdmgexp)
 zero = c("-","?","+","0", "")
-for (i in 1:506810){
-    if (sub2Data$propdmgexp[i] %in% zero){
-        sub2Data$propdmgexp[i] = NA
-    }
-    else if (sub2Data$propdmgexp[i] == "b"){
-        sub2Data$propdmgexp[i] = "1000000000" ## US Billion
-    }
-    else if (sub2Data$propdmgexp[i] == "m"){
-        sub2Data$propdmgexp = "1000000"
-    }
-    else if (sub2Data$propdmgexp[i] == "k"){
-        sub2Data$propdmgexp = "1000"
-    }
-    else {
-        sub2Data$propdmgexp = NA
-    }
-}
+## PROPDMG
+sub2Data$propdmgexp2 <- ifelse(sub2Data$propdmgexp %in% zero, NA, sub2Data$propdmgexp)
+sub2Data$propdmgexp2 <- ifelse(sub2Data$propdmgexp == "b", 1000000000, sub2Data$propdmgexp2)
+sub2Data$propdmgexp2 <- ifelse(sub2Data$propdmgexp == "m", 1000000, sub2Data$propdmgexp2)
+sub2Data$propdmgexp2 <- ifelse(sub2Data$propdmgexp == "k", 1000, sub2Data$propdmgexp2)
+sub2Data$propdmgexp2 <- as.numeric(sub2Data$propdmgexp2)
+sub2Data$totpropdmg <- sub2Data$propdmg * sub2Data$propdmgexp2
+## CROPDMG
+sub2Data$cropdmgexp2 <- ifelse(sub2Data$cropdmgexp %in% zero, NA, sub2Data$cropdmgexp)
+sub2Data$cropdmgexp2 <- ifelse(sub2Data$cropdmgexp == "b", 1000000000, sub2Data$cropdmgexp2)
+sub2Data$cropdmgexp2 <- ifelse(sub2Data$cropdmgexp == "m", 1000000, sub2Data$cropdmgexp2)
+sub2Data$cropdmgexp2 <- ifelse(sub2Data$cropdmgexp == "k", 1000, sub2Data$cropdmgexp2)
+sub2Data$cropdmgexp2 <- as.numeric(sub2Data$cropdmgexp2)
+sub2Data$totcropdmg <- sub2Data$cropdmg * sub2Data$cropdmgexp2
+## Dropping variables we don't need anymore (prop, crop & ev)
+sub2Data <- subset(sub2Data, select = c(-propdmg, -propdmgexp, -propdmgexp2,
+                                        -cropdmg, -cropdmgexp, -cropdmgexp2,
+                                        -evtypecat, -evtype))
 
-for (i in 1:506810){
-    if (sub2Data$cropdmgexp[i] %in% zero){
-        sub2Data$cropdmgexp[i] = NA
-    }
-    else if (sub2Data$cropdmgexp[i] == "b"){
-        sub2Data$cropdmgexp[i] = "1000000000"
-    }
-    else if (sub2Data$cropdmgexp[i] == "m"){
-        sub2Data$cropdmgexp = "1000000"
-    }
-    else if (sub2Data$cropdmgexp[i] == "k"){
-        sub2Data$cropdmgexp = "1000"
-    }
-    else {
-        sub2Data$cropdmgexp = NA
-    }
-}
