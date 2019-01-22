@@ -1,30 +1,205 @@
 ---
-title: "Coursera-RR-Peer2"
+title: "Coursera-Reproducible-Research-Peer-Assessment-2"
 author: "Maurits Sijtstra"
-date: "19 januari 2019"
+date: "22 januari 2019"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+# Title: Most harmful weather events across the Unites States
+
+## Synopsis
+This study explores the NOAA Storm Database for the Coursera Reproducible Research Peer Assessment 2. It answers which weather events are most harmful accross the United States. The Database is downloaded, cleaned and subsetted. Especially the event type variable is thoroughly cleaned based on a 48 events list (see Github repo). Furthermore the property and crop damage are recoded into integer values.
+
+The study shows that the event types excessive heat, tornado, flash flood, lightning and rip current are most harmful with respect to population health (based on fatalities). And that the event types flood, hurricane/typhoon, tornado, flash flood and hail have the greatest economic consequences (when based on property damage). And last but not least shows that the event types drought, flood, hurricane/typhoon, hail and flash flood have the greatest economic consequences (when based on crop damage).
+
+## Data Processing
+This part of the document describes how the data were loaded into R and processed for analysis. It start from the raw CSV file containing the data and ends just before the results. No (pre)processing is done outside the document.
+
+### Set Global Options
+```{r setup_global, include=TRUE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+### Set Work Directory
+```{r set_wd}
+setwd("C:/Users/Maurits/test-repo/RepData_PeerAssessment2")
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+### Load libraries
+```{r libraries, cache=TRUE, message = FALSE }
+library(dplyr); library(lubridate); library(data.table); library(stringdist);
+library(ggplot2)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+### Create data folder
+```{r data_dir}
+if (!file.exists("data")) {
+    dir.create("data")
+}
+```
+
+### Downloading data file to data folder as rawData.bz2
+```{r download_rawData, cache=TRUE}
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",
+              "./data/rawData.bz2")
+```
+
+### Date and time of moment rawData was downloaded
+```{r time_stamp}
+dataDownloaded <- date()
+print(dataDownloaded)
+```
+
+### Reading file as rawData in to R
+```{r read_rawData, cache=TRUE}
+rawData = read.csv("./data/rawData.bz2", sep = ",", na.strings = NA)
+```
+
+### Data cleaning step 1: cleaning variabele names
+Make column names lower case, clear special characters and rename to variables 
+because of duplicated column names. Furthermore change the bgndate data type in
+to date.
+```{r clean1, cache=TRUE}
+colnames(rawData) = tolower(colnames(rawData))
+colnames(rawData) = colnames(rawData) %>% gsub("_", "", .)
+names(rawData)[7] = "state2" # rename because of double variable name
+names(rawData)[35] = "longitude2" # rename because of double variable name
+rawData$bgndate = as.Date(rawData$bgndate, format = "%m/%d/%Y")
+```
+
+### Subset step 1: drop records before 1996, January
+Since our objective is comparing the effects of different weather events and
+only Tornado type events were recorded before Jan 1996, I have decided to 
+drop all records that occured before this date. The rawData will also be dropped to save memory.
+```{r subset1}
+sub1Data = rawData %>%
+    filter(bgndate >= ("1996-01-01"))
+rm(rawData)
+```
+
+### Subset step 2: drop variables we don't need to speed up analysis
+I have decided to answer the two research questions based on evtype, fatalities,
+injuries, propdmg, propdmgexp, cropdmg, cropdmgexp. All other variables will be
+dropped to speed up the analysis.
+```{r subset2}
+sub1Data = sub1Data %>%
+    select(evtype, fatalities, injuries, propdmg, propdmgexp, cropdmg,
+           cropdmgexp)
+```
+
+### Data table conversion
+To further speed up the analysis I have decided to convert the standard data frame in to a Data Table. For more information see: [Data Table Vignette](https://cran.r-project.org/web/packages/data.table/vignettes/datatable-intro.html)
+```{r datatable}
+sub1Data = data.table(sub1Data)
+```
+
+### Data cleaning step 2: evtype column
+The official different events type are 48. I have made a list that is in my Github repo, see: [Event Type list](https://github.com/mauritss/RepData_PeerAssessment2/blob/master/data/evtype_categories.txt). However the evtype column will give near one thousand different events. These code chunk will clean the evtype column so all values will be catogirized within one of the 48 event types defined in the text file (using amatch from the stringdist library), and in the process the code will drop all records that can't be categorized according the file. 
+```{r clean2, cache=TRUE}
+sub1Data$evtype = tolower(sub1Data$evtype)
+# Data frame based on list (see link above) 
+evtype_cat = read.table("./data/evtype_categories.txt", sep = ",", header = T)
+# amatch function from stringdist. maxDist proved to give best results.
+matchlist = amatch(sub1Data$evtype, evtype_cat$name, nomatch = NA, 
+                   method = "osa", maxDist = 4)
+sub1Data$evtypecat = matchlist
+sub2Data = sub1Data[matchlist > 0]
+sub2Data = merge(sub2Data, evtype_cat, by.x = "evtypecat", by.y = "nr")
+rm(sub1Data, matchlist, evtype_cat)
+```
+
+### Data cleaning step 3: propdmg(exp) & cropdmg(exp) columns
+First all values are made lower case. Second a match string will be defined. Third based on character values they are transformed in to their numbers. Hereby I have used the US definition of a billion (9 zero's).
+```{r clean3, cache=TRUE}
+sub2Data$propdmgexp = tolower(sub2Data$propdmgexp)
+sub2Data$cropdmgexp = tolower(sub2Data$cropdmgexp)
+zero = c("-","?","+","0", "")
+sub2Data$propdmgexp2 <- ifelse(sub2Data$propdmgexp %in% zero, NA, sub2Data$propdmgexp)
+sub2Data$propdmgexp2 <- ifelse(sub2Data$propdmgexp == "b", 1000000000, sub2Data$propdmgexp2)
+sub2Data$propdmgexp2 <- ifelse(sub2Data$propdmgexp == "m", 1000000, sub2Data$propdmgexp2)
+sub2Data$propdmgexp2 <- ifelse(sub2Data$propdmgexp == "k", 1000, sub2Data$propdmgexp2)
+sub2Data$propdmgexp2 <- as.numeric(sub2Data$propdmgexp2)
+sub2Data$totpropdmg <- sub2Data$propdmg * sub2Data$propdmgexp2
+sub2Data$cropdmgexp2 <- ifelse(sub2Data$cropdmgexp %in% zero, NA, sub2Data$cropdmgexp)
+sub2Data$cropdmgexp2 <- ifelse(sub2Data$cropdmgexp == "b", 1000000000, sub2Data$cropdmgexp2)
+sub2Data$cropdmgexp2 <- ifelse(sub2Data$cropdmgexp == "m", 1000000, sub2Data$cropdmgexp2)
+sub2Data$cropdmgexp2 <- ifelse(sub2Data$cropdmgexp == "k", 1000, sub2Data$cropdmgexp2)
+sub2Data$cropdmgexp2 <- as.numeric(sub2Data$cropdmgexp2)
+sub2Data$totcropdmg <- sub2Data$cropdmg * sub2Data$cropdmgexp2
+
+```
+
+### Subset step 3: Dropping variables
+After the transformation and the calculation in to two variables: totpropdmg and totcropdmg, we can drop all other columns because they are not needed anymore. The same applies to the match list named zero.
+```{r subset3}
+sub2Data <- subset(sub2Data, select = c(-propdmg, -propdmgexp, -propdmgexp2,
+                                        -cropdmg, -cropdmgexp, -cropdmgexp2,
+                                        -evtypecat, -evtype))
+rm(zero)
+```
+
+#### Notes
+Because the assessment is about reproducibility (and not finding the perfect data set) this is where I stopped cleaning and subsetting the data and went on to presenting the data.
+
+### Summarize data for question 1
+#### Q1. Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+To answer this question I translated "population health" in to the number of fatalities. Herefor I have grouped the data by event type (name variable) and summed the number of fatalities for each event. Then I made a top 5 most harmful events.
+```{r result1, cache=TRUE}
+sub3Data <- sub2Data %>%
+    group_by(name) %>%
+    summarize(sumfat=sum(fatalities, na.rm = T))
+
+quantile(sub3Data$sumfat, probs = seq(0, 1, 0.10), na.rm = FALSE)
+sub4Data <- subset(sub3Data, sumfat >= 487.0) ## top 10% - 5 obs
+sub4Data <- sub4Data[order(sub4Data$sumfat),]
+```
+
+### Summarize data for question 2
+####  Q2. Across the United States, which types of events have the greatest economic consequences? 
+To answer this question I translated "greatest economic consequences" in to the most property and crop damage done. Herefor I have grouped the data by event type (name variable) and summed the number of property and crop damage for each event. Then I made a top 5 most harmful events.
+
+```{r result2, cache=TRUE}
+sub6Data <- sub2Data %>%
+    group_by(name) %>%
+    summarize(prodamsum=sum(totpropdmg, na.rm = T), 
+              crodamsum=sum(totcropdmg, na.rm = T))
+
+quantile(sub6Data$prodamsum, probs = seq(0, 1, 0.10), na.rm = FALSE)
+sub7Data <- subset(sub6Data, prodamsum >= 11119034485) ## top 10% - 5 obs
+sub7Data <- sub7Data[order(sub7Data$prodamsum),]
+quantile(sub6Data$crodamsum, probs = seq(0, 1, 0.10), na.rm = FALSE)
+sub8Data <- subset(sub6Data, crodamsum >= 1214543850) ## top 10% - 5 obs
+sub8Data <- sub8Data[order(sub8Data$crodamsum),]
+```
+
+## Results
+Here the results are presented with ggplot2.
+
+### Q1. Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+The event types excessive heat, tornado, flash flood, lightning and rip current are most harmful with respect to population health.
+```{r, fig.cap = "Event types and total number of fatalities (top 5)" }
+g1 <- ggplot(sub4Data, aes(x=reorder(name, -sumfat), sumfat))
+g1 + geom_point() + theme_bw() + labs(x = "Event Type",
+        y = "Total number of fatalities", 
+        title = "Event types and total number of fatalities (top 5)")
+```
+
+### Q2. Across the United States, which types of events have the greatest economic consequences? 
+####Based on property damage
+The event types flood, hurricane/typhoon, tornado, flash flood and hail have the greatest economic consequences when based on property damage.
+```{r, fig.cap = "Event types and total number of Property Damage (top 5)" }
+g2 <- ggplot(sub7Data, aes(x=reorder(name, -prodamsum), prodamsum))
+g2 + geom_point() + theme_bw() + labs(x = "Event Type",
+                                      y = "Total number of prodamsum", 
+                                      title = "Event types and total number of Property Damage (top 5)")
+```
+
+####Based on crop damage:
+The event types drought, flood, hurricane/typhoon, hail and flash flood have the greatest economic consequences when based on crop damage.
+```{r, fig.cap = "Event types and total number of Crop Damage (top 5)" }
+g3 <- ggplot(sub8Data, aes(x=reorder(name, -crodamsum), crodamsum))
+g3 + geom_point() + theme_bw() + labs(x = "Event Type",
+                                      y = "Total number of crodamsum", 
+                                      title = "Event types and total number of Crop damage - top 5")
+```
+

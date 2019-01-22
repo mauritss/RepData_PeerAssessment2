@@ -41,8 +41,8 @@ rm(rawData)
 ## based on the questions asked. We only need to provide general information 
 ## about the US as a whole and different weather events.
 sub1Data = sub1Data %>%
-    select(evtype, f, mag, fatalities, injuries, propdmg, propdmgexp, cropdmg,
-           cropdmgexp, wfo, stateoffic, refnum)
+    select(evtype, fatalities, injuries, propdmg, propdmgexp, cropdmg,
+           cropdmgexp)
 
 ## 3. For more analysis speed change data frame to data table.
 sub1Data = data.table(sub1Data)
